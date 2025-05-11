@@ -1,163 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KVBA</title>
     <style>
-      body {
-          margin: 0;
-          overflow: hidden;
-          background-color: #000;
-      }
-      canvas {
-          display: block;
-          width: 100vw;
-          height: 100vh;
-      }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #buttons {
+            display: flex;
+            position: fixed;
+            justify-content: center;
+            width: 100%;
+            bottom: 9vh;
+            z-index: 2;
+            background: #000000;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 20%, rgba(0, 0, 0, 0.7) 80%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        #disclaimer {
+            display: flex;
+            position: fixed;
+            justify-content: center;
+            width: 100%;
+            bottom: 1vh;
+            z-index: 2;
+            font-family: sans-serif;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        button {
+            padding: 5px;
+            margin: 4px;
+            background-color: rgba(255, 255, 255, .2);
+            border: rgba(255, 255, 255, 0.8) solid;
+            border-radius: 10px;
+            transition: ease-in-out 0.2s;
+        }
+
+        button:hover {
+            background-color: rgba(255, 255, 255, .3);
+        }
     </style>
-  </head>
-  <body>
+</head>
+
+<body>
     <canvas id="shaderCanvas"></canvas>
 
+    <div id="buttons">
+        <button onclick='window.open("https://bsky.app/profile/kvba.bsky.social")'><img src="icons/icons8-bluesky.svg"
+                width="40px" height="40px"></button>
+        <button onclick='window.open("https://soundcloud.com/musicbykvba")'><img src="icons/icons8-soundcloud.svg"
+                width="40px" height="40px"></button>
+        <button onclick='window.open("https://youtube.com/@KVBA")'><img src="icons/icons8-youtube.svg" width="40px"
+                height="40px"></button>
+        <button onclick='window.open("https://github.com/KVBA-dev")'><img src="icons/icons8-github.svg" width="40px"
+                height="40px"></button>
+        <button onclick='window.open("https://discord.com/invite/hVBYDDk")'><img src="icons/icons8-discord-new.svg"
+                width="40px" height="40px"></button>
+    </div>
+
+    <div id="disclaimer">
+        icons by&nbsp;<a target="_blank" href="https://icons8.com">Icons8</a>
+    </div>
+
     <script>
-              const vertexShaderSource = `
-                  attribute vec2 aPosition;
-                  void main() {
-                      gl_Position = vec4(aPosition, 0.0, 1.0);
-                  }
+        const vertexShaderSource = `
+attribute vec2 aPosition;
+void main() {
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+}
               `;
 
-              const fragmentShaderSource = `
-                  precision highp float;
+        const fragmentShaderSource = `
+precision highp float;
+uniform float uTime;
+uniform vec2 uResolution;
 
-                  uniform float uTime;
-                  uniform vec2 uResolution;
+bool b_rect(vec2 x, vec2 y, vec2 uv) {
+     return uv.x < x.y && uv.x > x.x && uv.y < y.y && uv.y > y.x;
+}
 
-                  bool b_rect(vec2 x, vec2 y, vec2 uv) {
-          return uv.x < x.y && uv.x > x.x && uv.y < y.y && uv.y > y.x;
-      }
+vec3 col_sss(vec3 col) {
+     const int iters = 4;
+     float r = col.r, g = col.g, b = col.b;
+     for (int i = 0; i < iters; i++) {
+         r = smoothstep(-0.3, 1.2, r);
+         g = smoothstep(-0.3, 1.2, g);
+         b = smoothstep(-0.3, 1.2, b);
+     }
+     return vec3(r, g, b);
+}
 
-      vec3 col_sss(vec3 col) {
-      const int iters = 4;
-          float r = col.r, g = col.g, b = col.b;
-          for (int i = 0; i < iters; i++) {
-              r = smoothstep(-0.3, 1.2, r);
-              g = smoothstep(-0.3, 1.2, g);
-              b = smoothstep(-0.3, 1.2, b);
-          }
-          return vec3(r, g, b);
-      }
+void main() {
+    // Normalized pixel coordinates (from 0 to 1)
+    vec2 uv = gl_FragCoord.xy/uResolution;
+    float aspectRatio = (uResolution.x / uResolution.y) * (9. / 16.);
+    vec2 lines_uv = uv * vec2(aspectRatio, 1) - vec2((aspectRatio - 1.) / 2., 0) + vec2(.025, -0.025);
 
-      void main()
-      {
-          // Normalized pixel coordinates (from 0 to 1)
-          vec2 uv = gl_FragCoord.xy/uResolution;
-          float aspectRatio = (uResolution.x / uResolution.y) * (9. / 16.);
-          vec2 lines_uv = uv * vec2(aspectRatio, 1) - vec2((aspectRatio - 1.) / 2., 0);
+    // Time varying pixel color
+    vec3 col = 0.5 + 0.5*cos(uTime*vec3(1.1,1.5,1.2)+uv.xyx+vec3(0.12,3.4,3.9));
 
-          // Time varying pixel color
-          vec3 col = 0.5 + 0.5*cos(uTime*vec3(1.1,1.5,1.2)+uv.xyx+vec3(0.12,3.4,3.9));
+    // Output to screen
 
-          // Output to screen
+    bool b_lines = b_rect(vec2(.4, .425), vec2(.2, .8), lines_uv);
+    b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.75, .8), lines_uv);
+    b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.2, .25), lines_uv);
+    b_lines = b_lines || .75*lines_uv.y-lines_uv.x > -0.05 && .75*lines_uv.y-lines_uv.x < 0. && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
+    b_lines = b_lines || -.75*lines_uv.y-lines_uv.x > -.8 && -.75*lines_uv.y-lines_uv.x < -.75 && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
+    b_lines = b_lines || b_rect(vec2(.52, .55), vec2(.32, .68), lines_uv);
+    float line = b_lines ? 1. : 0.;
 
-          bool b_lines = b_rect(vec2(.4, .425), vec2(.2, .8), lines_uv);
-          b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.75, .8), lines_uv);
-          b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.2, .25), lines_uv);
-          b_lines = b_lines || .75*lines_uv.y-lines_uv.x > -0.05 && .75*lines_uv.y-lines_uv.x < 0. && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
-          b_lines = b_lines || -.75*lines_uv.y-lines_uv.x > -.8 && -.75*lines_uv.y-lines_uv.x < -.75 && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
-          b_lines = b_lines || b_rect(vec2(.52, .55), vec2(.32, .68), lines_uv);
-          float line = b_lines ? 1. : 0.;
+    col = col_sss(col);
+    gl_FragColor = vec4(!b_lines ? vec3(1.) - col : col,1.0);
+}`;
 
-          col = col_sss(col);
-          gl_FragColor = vec4(!b_lines ? vec3(1.) - col : col,1.0);
-      }
+        const canvas = document.getElementById('shaderCanvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
-              `;
+        if (!gl) {
+            alert('WebGL not supported in your browser!');
+            throw new Error('WebGL not supported');
+        }
 
-              const canvas = document.getElementById('shaderCanvas');
-              const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        function compileShader(gl, source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
 
-              if (!gl) {
-                  alert('WebGL not supported in your browser!');
-                  throw new Error('WebGL not supported');
-              }
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
 
-              function compileShader(gl, source, type) {
-                  const shader = gl.createShader(type);
-                  gl.shaderSource(shader, source);
-                  gl.compileShader(shader);
+            return shader;
+        }
 
-                  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                      console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
-                      gl.deleteShader(shader);
-                      return null;
-                  }
+        const vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+        const fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
 
-                  return shader;
-              }
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
 
-              const vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
-              const fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            console.error('Shader program linking error:', gl.getProgramInfoLog(shaderProgram));
+        }
 
-              const shaderProgram = gl.createProgram();
-              gl.attachShader(shaderProgram, vertexShader);
-              gl.attachShader(shaderProgram, fragmentShader);
-              gl.linkProgram(shaderProgram);
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
-              if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-                  console.error('Shader program linking error:', gl.getProgramInfoLog(shaderProgram));
-              }
+        const positions = [
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            1.0, 1.0
+        ];
 
-              const positionBuffer = gl.createBuffer();
-              gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-              const positions = [
-                  -1.0, -1.0,
-                   1.0, -1.0,
-                  -1.0,  1.0,
-                   1.0,  1.0
-              ];
+        const positionAttributeLocation = gl.getAttribLocation(shaderProgram, "aPosition");
+        const resolutionUniformLocation = gl.getUniformLocation(shaderProgram, "uResolution");
+        const timeUniformLocation = gl.getUniformLocation(shaderProgram, "uTime");
 
-              gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
 
-              const positionAttributeLocation = gl.getAttribLocation(shaderProgram, "aPosition");
-              const resolutionUniformLocation = gl.getUniformLocation(shaderProgram, "uResolution");
-              const timeUniformLocation = gl.getUniformLocation(shaderProgram, "uTime");
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-              function resizeCanvas() {
-                  canvas.width = window.innerWidth;
-                  canvas.height = window.innerHeight;
-                  gl.viewport(0, 0, canvas.width, canvas.height);
-              }
+        let startTime = Date.now();
 
-              window.addEventListener('resize', resizeCanvas);
-              resizeCanvas();
+        function animate() {
+            const currentTime = (Date.now() - startTime) / 1000;
 
-              let startTime = Date.now();
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
 
-              function animate() {
-                  const currentTime = (Date.now() - startTime) / 1000;
+            gl.useProgram(shaderProgram);
 
-                  gl.clearColor(0.0, 0.0, 0.0, 1.0);
-                  gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.uniform1f(timeUniformLocation, currentTime);
+            gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
 
-                  gl.useProgram(shaderProgram);
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
-                  gl.uniform1f(timeUniformLocation, currentTime);
-                  gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-                  gl.enableVertexAttribArray(positionAttributeLocation);
-                  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-                  gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+            requestAnimationFrame(animate);
+        }
 
-                  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-                  requestAnimationFrame(animate);
-              }
-
-              // Start animation
-              animate();
+        animate();
     </script>
-  </body>
+</body>
+
 </html>
