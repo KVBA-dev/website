@@ -1,9 +1,163 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>KVBA</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fullscreen GLSL Shader</title>
+    <style>
+      body {
+          margin: 0;
+          overflow: hidden;
+          background-color: #000;
+      }
+      canvas {
+          display: block;
+          width: 100vw;
+          height: 100vh;
+      }
+    </style>
   </head>
   <body>
-    <h1>KVBA's site</h1>
+    <canvas id="shaderCanvas"></canvas>
+
+    <script>
+              const vertexShaderSource = `
+                  attribute vec2 aPosition;
+                  void main() {
+                      gl_Position = vec4(aPosition, 0.0, 1.0);
+                  }
+              `;
+
+              const fragmentShaderSource = `
+                  precision highp float;
+
+                  uniform float uTime;
+                  uniform vec2 uResolution;
+
+                  bool b_rect(vec2 x, vec2 y, vec2 uv) {
+          return uv.x < x.y && uv.x > x.x && uv.y < y.y && uv.y > y.x;
+      }
+
+      vec3 col_sss(vec3 col) {
+      const int iters = 4;
+          float r = col.r, g = col.g, b = col.b;
+          for (int i = 0; i < iters; i++) {
+              r = smoothstep(-0.3, 1.2, r);
+              g = smoothstep(-0.3, 1.2, g);
+              b = smoothstep(-0.3, 1.2, b);
+          }
+          return vec3(r, g, b);
+      }
+
+      void main()
+      {
+          // Normalized pixel coordinates (from 0 to 1)
+          vec2 uv = gl_FragCoord.xy/uResolution;
+          float aspectRatio = (uResolution.x / uResolution.y) * (9. / 16.);
+          vec2 lines_uv = uv * vec2(aspectRatio, 1) - vec2((aspectRatio - 1.) / 2., 0);
+
+          // Time varying pixel color
+          vec3 col = 0.5 + 0.5*cos(uTime*vec3(1.1,1.5,1.2)+uv.xyx+vec3(0.12,3.4,3.9));
+
+          // Output to screen
+
+          bool b_lines = b_rect(vec2(.4, .425), vec2(.2, .8), lines_uv);
+          b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.75, .8), lines_uv);
+          b_lines = b_lines || b_rect(vec2(.4, .61), vec2(.2, .25), lines_uv);
+          b_lines = b_lines || .75*lines_uv.y-lines_uv.x > -0.05 && .75*lines_uv.y-lines_uv.x < 0. && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
+          b_lines = b_lines || -.75*lines_uv.y-lines_uv.x > -.8 && -.75*lines_uv.y-lines_uv.x < -.75 && b_rect(vec2(.4, .65), vec2(.2, .8), lines_uv);
+          b_lines = b_lines || b_rect(vec2(.52, .55), vec2(.32, .68), lines_uv);
+          float line = b_lines ? 1. : 0.;
+
+          col = col_sss(col);
+          gl_FragColor = vec4(!b_lines ? vec3(1.) - col : col,1.0);
+      }
+
+              `;
+
+              const canvas = document.getElementById('shaderCanvas');
+              const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+              if (!gl) {
+                  alert('WebGL not supported in your browser!');
+                  throw new Error('WebGL not supported');
+              }
+
+              function compileShader(gl, source, type) {
+                  const shader = gl.createShader(type);
+                  gl.shaderSource(shader, source);
+                  gl.compileShader(shader);
+
+                  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                      console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                      gl.deleteShader(shader);
+                      return null;
+                  }
+
+                  return shader;
+              }
+
+              const vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+              const fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+
+              const shaderProgram = gl.createProgram();
+              gl.attachShader(shaderProgram, vertexShader);
+              gl.attachShader(shaderProgram, fragmentShader);
+              gl.linkProgram(shaderProgram);
+
+              if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+                  console.error('Shader program linking error:', gl.getProgramInfoLog(shaderProgram));
+              }
+
+              const positionBuffer = gl.createBuffer();
+              gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+              const positions = [
+                  -1.0, -1.0,
+                   1.0, -1.0,
+                  -1.0,  1.0,
+                   1.0,  1.0
+              ];
+
+              gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+              const positionAttributeLocation = gl.getAttribLocation(shaderProgram, "aPosition");
+              const resolutionUniformLocation = gl.getUniformLocation(shaderProgram, "uResolution");
+              const timeUniformLocation = gl.getUniformLocation(shaderProgram, "uTime");
+
+              function resizeCanvas() {
+                  canvas.width = window.innerWidth;
+                  canvas.height = window.innerHeight;
+                  gl.viewport(0, 0, canvas.width, canvas.height);
+              }
+
+              window.addEventListener('resize', resizeCanvas);
+              resizeCanvas();
+
+              let startTime = Date.now();
+
+              function animate() {
+                  const currentTime = (Date.now() - startTime) / 1000;
+
+                  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                  gl.clear(gl.COLOR_BUFFER_BIT);
+
+                  gl.useProgram(shaderProgram);
+
+                  gl.uniform1f(timeUniformLocation, currentTime);
+                  gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
+
+                  gl.enableVertexAttribArray(positionAttributeLocation);
+                  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                  gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+                  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+                  requestAnimationFrame(animate);
+              }
+
+              // Start animation
+              animate();
+    </script>
   </body>
 </html>
